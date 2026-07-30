@@ -1,14 +1,25 @@
 import { useState, useMemo } from "react";
 import { getTables } from "../lib/readWordTable";
 import { normalizeMpesaTable } from "../lib/normalizeMpesaTable";
+import {
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  FileText,
+} from "lucide-react";
 
 export default function TestWordTable() {
   const [tables, setTables] = useState([]);
   const [currentTable, setCurrentTable] = useState(0);
+  const [fileName, setFileName] = useState("");
 
   async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+    setFileName(file.name);
 
     const rawTables = await getTables(file);
     const cleanedTables = rawTables.map((table) => {
@@ -44,7 +55,6 @@ export default function TestWordTable() {
 
   const table = tables[currentTable] || [];
 
-  // Monthly summaries
   const monthlySummaries = useMemo(() => {
     const summaries = {};
     const ungroupedRows = [];
@@ -56,34 +66,23 @@ export default function TestWordTable() {
         const row = table[i];
         if (row.length !== 7) continue;
 
-        // Skip completely empty rows
         const hasContent = row.some((cell) => cell && cell.trim() !== "");
         if (!hasContent) continue;
 
-        const dateStr = row[1]; // Completion Time
+        const dateStr = row[1];
 
-        // Just grab first 7 chars - that's our YYYY-MM
         if (dateStr && dateStr.length >= 7) {
-          const yearMonth = dateStr.substring(0, 7); // "2026-04"
+          const yearMonth = dateStr.substring(0, 7);
 
           if (/^\d{4}-\d{2}$/.test(yearMonth)) {
             if (!summaries[yearMonth]) {
-              summaries[yearMonth] = {
-                paidIn: 0,
-                withdrawn: 0,
-                count: 0,
-              };
+              summaries[yearMonth] = { paidIn: 0, withdrawn: 0, count: 0 };
             }
-
             summaries[yearMonth].paidIn += parseAmount(row[4]);
             summaries[yearMonth].withdrawn += Math.abs(parseAmount(row[5]));
             summaries[yearMonth].count++;
           } else {
-            ungroupedRows.push({
-              row,
-              tableIndex: tableIndex + 1,
-              rowIndex: i,
-            });
+            ungroupedRows.push({ row, tableIndex: tableIndex + 1, rowIndex: i });
           }
         } else {
           ungroupedRows.push({ row, tableIndex: tableIndex + 1, rowIndex: i });
@@ -91,13 +90,9 @@ export default function TestWordTable() {
       }
     });
 
-    // Sort by year-month
     const sortedSummaries = Object.entries(summaries)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => ({
-        key,
-        ...value,
-      }));
+      .map(([key, value]) => ({ key, ...value }));
 
     return { summaries: sortedSummaries, ungroupedRows };
   }, [tables]);
@@ -133,288 +128,250 @@ export default function TestWordTable() {
   const tableTotals = getTableTotals(table);
 
   const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
   ];
 
   function getMonthName(monthNum) {
     return monthNames[parseInt(monthNum) - 1] || monthNum;
   }
 
+  const hasData = tables.length > 0;
+
   return (
-    <div className="mt-16 rounded-xl border border-slate-700 bg-slate-900 p-6">
-      <h2 className="mb-6 text-2xl font-bold">Word Table Viewer</h2>
+    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
 
-      <input
-        type="file"
-        accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        onChange={handleUpload}
-        className="mb-6 border border-gray-400 p-2 rounded-xl w-full"
-      />
+      {/* Upload */}
+      <div>
+        <label className="block text-sm font-medium text-slate-400 mb-2">
+          Upload Statement
+        </label>
+        <label className="flex flex-col items-center justify-center gap-3 w-full border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-xl p-8 cursor-pointer transition-colors group">
+          <div className="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-emerald-500/10 flex items-center justify-center transition-colors">
+            <Upload className="w-5 h-5 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+          </div>
+          {fileName ? (
+            <div className="text-center">
+              <p className="text-sm font-medium text-emerald-400">{fileName}</p>
+              <p className="text-xs text-slate-500 mt-1">Click to replace</p>
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-sm font-medium text-slate-300">
+                Drop your .docx file here
+              </p>
+              <p className="text-xs text-slate-500 mt-1">or click to browse</p>
+            </div>
+          )}
+          <input
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={handleUpload}
+            className="hidden"
+          />
+        </label>
+      </div>
 
-      {/* Monthly Summaries Section */}
-      {monthlySummaries.summaries.length > 0 && (
-        <div className="mb-6">
-          <h3 className="mb-4 text-xl font-bold">Monthly Summaries</h3>
-
-          <div className="overflow-auto rounded-lg border border-slate-700">
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-slate-800">
-                  <th className="border border-slate-600 p-2 text-left">
-                    Month
-                  </th>
-                  <th className="border border-slate-600 p-2 text-right">
-                    Transactions
-                  </th>
-                  <th className="border border-slate-600 p-2 text-right">
-                    Paid In
-                  </th>
-                  <th className="border border-slate-600 p-2 text-right">
-                    Withdrawn
-                  </th>
-                  <th className="border border-slate-600 p-2 text-right">
-                    Net
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlySummaries.summaries.map((summary) => (
-                  <tr key={summary.key} className="hover:bg-slate-800/50">
-                    <td className="border border-slate-600 p-2">
-                      {getMonthName(summary.key.substring(5, 7))}{" "}
-                      {summary.key.substring(0, 4)}
-                    </td>
-                    <td className="border border-slate-600 p-2 text-right">
-                      {summary.count}
-                    </td>
-                    <td className="border border-slate-600 p-2 text-right text-green-400">
-                      {summary.paidIn.toLocaleString()}
-                    </td>
-                    <td className="border border-slate-600 p-2 text-right text-red-400">
-                      {summary.withdrawn.toLocaleString()}
-                    </td>
-                    <td
-                      className={`border border-slate-600 p-2 text-right font-bold ${
-                        summary.paidIn - summary.withdrawn >= 0
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {(summary.paidIn - summary.withdrawn).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-
-                {/* Totals row */}
-                <tr className="bg-slate-800 font-bold">
-                  <td className="border border-slate-600 p-2">TOTAL</td>
-                  <td className="border border-slate-600 p-2 text-right">
-                    {monthlySummaries.summaries.reduce(
-                      (sum, s) => sum + s.count,
-                      0,
-                    )}
-                  </td>
-                  <td className="border border-slate-600 p-2 text-right text-green-400">
-                    {monthlySummaries.summaries
-                      .reduce((sum, s) => sum + s.paidIn, 0)
-                      .toLocaleString()}
-                  </td>
-                  <td className="border border-slate-600 p-2 text-right text-red-400">
-                    {monthlySummaries.summaries
-                      .reduce((sum, s) => sum + s.withdrawn, 0)
-                      .toLocaleString()}
-                  </td>
-                  <td
-                    className={`border border-slate-600 p-2 text-right ${
-                      monthlySummaries.summaries.reduce(
-                        (sum, s) => sum + s.paidIn - s.withdrawn,
-                        0,
-                      ) >= 0
-                        ? "text-green-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {monthlySummaries.summaries
-                      .reduce((sum, s) => sum + s.paidIn - s.withdrawn, 0)
-                      .toLocaleString()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+      {hasData && (
+        <>
+          {/* Grand Totals */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  Total Paid In
+                </span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-bold text-emerald-400">
+                KES {grandTotals.paidIn.toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingDown className="w-4 h-4 text-red-400" />
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                  Total Withdrawn
+                </span>
+              </div>
+              <div className="text-2xl sm:text-3xl font-bold text-red-400">
+                KES {grandTotals.withdrawn.toLocaleString()}
+              </div>
+            </div>
           </div>
 
-          {/* Ungrouped Transactions Table */}
-          {monthlySummaries.ungroupedRows.length > 0 && (
-            <div className="mt-4">
-              <h4 className="mb-2 text-lg font-bold text-yellow-400">
-                ⚠ {monthlySummaries.ungroupedRows.length} Transaction
-                {monthlySummaries.ungroupedRows.length !== 1 ? "s" : ""} Could
-                Not Be Grouped
-              </h4>
-
-              <div className="overflow-auto rounded-lg border border-yellow-700">
-                <table className="min-w-full">
+          {/* Monthly Summaries */}
+          {monthlySummaries.summaries.length > 0 && (
+            <div>
+              <h3 className="text-base font-semibold text-white mb-4">
+                Monthly Breakdown
+              </h3>
+              <div className="overflow-x-auto rounded-xl border border-slate-700/60">
+                <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="bg-yellow-900/50">
-                      <th className="border border-slate-600 p-2 text-left">
-                        Table
-                      </th>
-                      <th className="border border-slate-600 p-2 text-left">
-                        Receipt No.
-                      </th>
-                      <th className="border border-slate-600 p-2 text-left">
-                        Completion Time
-                      </th>
-                      <th className="border border-slate-600 p-2 text-left">
-                        Details
-                      </th>
-                      <th className="border border-slate-600 p-2 text-left">
-                        Status
-                      </th>
-                      <th className="border border-slate-600 p-2 text-right">
-                        Paid In
-                      </th>
-                      <th className="border border-slate-600 p-2 text-right">
-                        Withdrawn
-                      </th>
-                      <th className="border border-slate-600 p-2 text-right">
-                        Balance
-                      </th>
+                    <tr className="bg-slate-800/80">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wide">Month</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wide">Transactions</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wide">Paid In</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wide">Withdrawn</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wide">Net</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {monthlySummaries.ungroupedRows.map(
-                      ({ row, tableIndex }, index) => (
-                        <tr key={index} className="hover:bg-slate-800/50">
-                          <td className="border border-slate-600 p-2 text-center font-bold">
-                            {tableIndex}
+                  <tbody className="divide-y divide-slate-800">
+                    {monthlySummaries.summaries.map((summary) => {
+                      const net = summary.paidIn - summary.withdrawn;
+                      return (
+                        <tr key={summary.key} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-200">
+                            {getMonthName(summary.key.substring(5, 7))} {summary.key.substring(0, 4)}
                           </td>
-                          {row.map((cell, j) => (
-                            <td
-                              key={j}
-                              className="border border-slate-600 p-2 whitespace-pre-wrap"
-                            >
-                              {cell}
-                            </td>
-                          ))}
+                          <td className="px-4 py-3 text-right text-slate-400">{summary.count}</td>
+                          <td className="px-4 py-3 text-right text-emerald-400 font-medium">{summary.paidIn.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-red-400 font-medium">{summary.withdrawn.toLocaleString()}</td>
+                          <td className={`px-4 py-3 text-right font-bold ${net >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            {net >= 0 ? "+" : ""}{net.toLocaleString()}
+                          </td>
                         </tr>
-                      ),
-                    )}
+                      );
+                    })}
+                    {/* Totals row */}
+                    <tr className="bg-slate-800/60 font-bold border-t-2 border-slate-600">
+                      <td className="px-4 py-3 text-slate-200">Total</td>
+                      <td className="px-4 py-3 text-right text-slate-400">
+                        {monthlySummaries.summaries.reduce((s, x) => s + x.count, 0)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-emerald-400">
+                        {monthlySummaries.summaries.reduce((s, x) => s + x.paidIn, 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-400">
+                        {monthlySummaries.summaries.reduce((s, x) => s + x.withdrawn, 0).toLocaleString()}
+                      </td>
+                      <td className={`px-4 py-3 text-right ${monthlySummaries.summaries.reduce((s, x) => s + x.paidIn - x.withdrawn, 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {monthlySummaries.summaries.reduce((s, x) => s + x.paidIn - x.withdrawn, 0).toLocaleString()}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
+
+              {/* Ungrouped rows */}
+              {monthlySummaries.ungroupedRows.length > 0 && (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <h4 className="text-sm font-semibold text-amber-400">
+                      {monthlySummaries.ungroupedRows.length} transaction{monthlySummaries.ungroupedRows.length !== 1 ? "s" : ""} could not be grouped
+                    </h4>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-amber-700/40">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="bg-amber-900/20">
+                          {["Table", "Receipt No.", "Completion Time", "Details", "Status", "Paid In", "Withdrawn", "Balance"].map((h) => (
+                            <th key={h} className="px-3 py-2 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {monthlySummaries.ungroupedRows.map(({ row, tableIndex }, index) => (
+                          <tr key={index} className="hover:bg-slate-800/40">
+                            <td className="px-3 py-2 text-center font-bold text-slate-300">{tableIndex}</td>
+                            {row.map((cell, j) => (
+                              <td key={j} className="px-3 py-2 text-slate-300 whitespace-pre-wrap max-w-xs">{cell}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      <div className="mb-6 grid grid-cols-2 gap-4">
-        <div className="rounded-lg bg-green-900 p-4">
-          <div className="text-sm text-slate-300">
-            Total Paid In (All Tables)
-          </div>
-          <div className="mt-2 text-3xl font-bold">
-            {grandTotals.paidIn.toLocaleString()}
-          </div>
-        </div>
-        <div className="rounded-lg bg-red-900 p-4">
-          <div className="text-sm text-slate-300">
-            Total Withdrawn (All Tables)
-          </div>
-          <div className="mt-2 text-3xl font-bold">
-            {grandTotals.withdrawn.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      {tables.length > 0 && (
-        <>
-          <div className="mb-6 flex items-center justify-between">
-            <button
-              onClick={() => setCurrentTable(Math.max(0, currentTable - 1))}
-              disabled={currentTable === 0}
-              className="rounded bg-slate-700 px-4 py-2 disabled:opacity-40"
-            >
-              ◀ Previous
-            </button>
-            <div className="font-semibold">
-              Table {currentTable + 1} / {tables.length}
+          {/* Table navigator */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-400" />
+                <h3 className="text-base font-semibold text-white">
+                  Transaction Detail
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentTable(Math.max(0, currentTable - 1))}
+                  disabled={currentTable === 0}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm text-slate-400 px-1">
+                  {currentTable + 1} / {tables.length}
+                </span>
+                <button
+                  onClick={() => setCurrentTable(Math.min(tables.length - 1, currentTable + 1))}
+                  disabled={currentTable === tables.length - 1}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() =>
-                setCurrentTable(Math.min(tables.length - 1, currentTable + 1))
-              }
-              disabled={currentTable === tables.length - 1}
-              className="rounded bg-slate-700 px-4 py-2 disabled:opacity-40"
-            >
-              Next ▶
-            </button>
-          </div>
 
-          <div className="mb-4 grid grid-cols-2 gap-4">
-            <div className="rounded bg-green-900 p-3">
-              Table Paid In Total:
-              <strong className="ml-2">
-                {tableTotals.paidIn.toLocaleString()}
-              </strong>
+            {/* Table totals */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-lg bg-slate-800/60 border border-slate-700/60 px-4 py-3 flex items-center justify-between">
+                <span className="text-xs text-slate-400">Page Paid In</span>
+                <span className="text-sm font-bold text-emerald-400">{tableTotals.paidIn.toLocaleString()}</span>
+              </div>
+              <div className="rounded-lg bg-slate-800/60 border border-slate-700/60 px-4 py-3 flex items-center justify-between">
+                <span className="text-xs text-slate-400">Page Withdrawn</span>
+                <span className="text-sm font-bold text-red-400">{tableTotals.withdrawn.toLocaleString()}</span>
+              </div>
             </div>
-            <div className="rounded bg-red-900 p-3">
-              Table Withdrawn Total:
-              <strong className="ml-2">
-                {tableTotals.withdrawn.toLocaleString()}
-              </strong>
-            </div>
-          </div>
 
-          <div className="overflow-auto">
-            <table className="min-w-full border-collapse">
-              <tbody>
-                {table.map((row, i) => (
-                  <tr key={i}>
-                    {row.map((cell, j) => (
-                      <td
-                        key={j}
-                        className={`border border-slate-600 p-2 align-top whitespace-pre-wrap ${
-                          i === 0 ? "bg-slate-800 font-bold" : ""
-                        }`}
-                      >
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-                {table.length > 1 && (
-                  <tr>
-                    <td
-                      colSpan="4"
-                      className="border border-slate-600 p-2 font-bold"
-                    >
-                      TOTAL
-                    </td>
-                    <td className="border border-slate-600 p-2 font-bold">
-                      {tableTotals.paidIn.toLocaleString()}
-                    </td>
-                    <td className="border border-slate-600 p-2 font-bold">
-                      {tableTotals.withdrawn.toLocaleString()}
-                    </td>
-                    <td className="border border-slate-600 p-2"></td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            {/* Raw table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-700/60">
+              <table className="min-w-full text-sm">
+                <tbody className="divide-y divide-slate-800">
+                  {table.map((row, i) => (
+                    <tr key={i} className={i === 0 ? "bg-slate-800/80" : "hover:bg-slate-800/30 transition-colors"}>
+                      {row.map((cell, j) => (
+                        <td
+                          key={j}
+                          className={`px-3 py-2.5 align-top whitespace-pre-wrap ${
+                            i === 0
+                              ? "text-xs font-semibold text-slate-300 uppercase tracking-wide"
+                              : "text-slate-300"
+                          }`}
+                        >
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {table.length > 1 && (
+                    <tr className="bg-slate-800/60 font-bold">
+                      <td colSpan="4" className="px-3 py-2.5 text-slate-300 text-xs uppercase tracking-wide">Total</td>
+                      <td className="px-3 py-2.5 text-emerald-400">{tableTotals.paidIn.toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-red-400">{tableTotals.withdrawn.toLocaleString()}</td>
+                      <td className="px-3 py-2.5"></td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
+      )}
+
+      {/* Empty state */}
+      {!hasData && (
+        <div className="text-center py-16 text-slate-600">
+          <FileText className="w-12 h-12 mx-auto mb-4 opacity-30" />
+          <p className="text-sm">Upload a statement to see your analysis</p>
+        </div>
       )}
     </div>
   );
