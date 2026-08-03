@@ -37,12 +37,20 @@ export default function TestWordTable() {
       return table;
     });
 
-    console.log("Raw Tables");
+   console.log("Raw Tables");
     console.log(rawTables);
     console.log("Normalized Tables");
     console.log(cleanedTables);
     setTables(cleanedTables);
     setCurrentTable(0);
+
+    // --- Track upload event in GA4 ---
+    if (typeof window.gtag === "function") {
+      window.gtag("event", "upload_statement", {
+        event_category: "engagement",
+        event_label: file.name,
+      });
+    }
   }
 
   function parseAmount(value) {

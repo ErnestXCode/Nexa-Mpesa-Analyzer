@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.27.0",
     "mammoth": "^1.12.0",
