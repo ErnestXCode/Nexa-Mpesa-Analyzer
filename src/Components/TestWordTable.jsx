@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { getTables } from "../lib/readWordTable";
+import * as XLSX from "xlsx";
 import { normalizeMpesaTable } from "../lib/normalizeMpesaTable";
 import {
   Upload,
@@ -9,6 +10,7 @@ import {
   TrendingDown,
   AlertTriangle,
   FileText,
+  Download
 } from "lucide-react";
 
 export default function TestWordTable() {
@@ -124,6 +126,49 @@ export default function TestWordTable() {
       { paidIn: 0, withdrawn: 0 },
     );
   }
+  function handleExport() {
+  const wb = XLSX.utils.book_new();
+
+  // Monthly summary sheet
+  const summaryRows = [
+    ["Month", "Transactions", "Paid In", "Withdrawn", "Net"],
+    ...monthlySummaries.summaries.map((s) => [
+      `${getMonthName(s.key.substring(5, 7))} ${s.key.substring(0, 4)}`,
+      s.count,
+      s.paidIn,
+      s.withdrawn,
+      s.paidIn - s.withdrawn,
+    ]),
+    [
+      "Total",
+      monthlySummaries.summaries.reduce((sum, x) => sum + x.count, 0),
+      monthlySummaries.summaries.reduce((sum, x) => sum + x.paidIn, 0),
+      monthlySummaries.summaries.reduce((sum, x) => sum + x.withdrawn, 0),
+      monthlySummaries.summaries.reduce((sum, x) => sum + x.paidIn - x.withdrawn, 0),
+    ],
+  ];
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, summarySheet, "Monthly Summary");
+
+  // One sheet per uploaded table
+  tables.forEach((t, i) => {
+    const sheet = XLSX.utils.aoa_to_sheet(t);
+    XLSX.utils.book_append_sheet(wb, sheet, `Table ${i + 1}`);
+  });
+
+  // Ungrouped/unmatched rows, if any
+  if (monthlySummaries.ungroupedRows.length > 0) {
+    const ungroupedRows = [
+      ["Table", "Receipt No.", "Completion Time", "Details", "Status", "Paid In", "Withdrawn", "Balance"],
+      ...monthlySummaries.ungroupedRows.map(({ row, tableIndex }) => [tableIndex, ...row]),
+    ];
+    const ungroupedSheet = XLSX.utils.aoa_to_sheet(ungroupedRows);
+    XLSX.utils.book_append_sheet(wb, ungroupedSheet, "Unmatched Rows");
+  }
+
+  const outName = fileName ? fileName.replace(/\.docx$/i, "") : "mpesa-analysis";
+  XLSX.writeFile(wb, `${outName}.xlsx`);
+}
 
   const tableTotals = getTableTotals(table);
 
@@ -174,6 +219,15 @@ export default function TestWordTable() {
 
       {hasData && (
         <>
+        <div className="flex justify-end">
+    <button
+      onClick={handleExport}
+      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors text-sm font-medium"
+    >
+      <Download className="w-4 h-4" />
+      Export to Excel
+    </button>
+  </div>
           {/* Grand Totals */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-5">
